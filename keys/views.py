@@ -2,6 +2,7 @@ from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.parsers import JSONParser
+from django.db.models import Q
 from .models import PrivateKey
 from .serializers import PrivateKeySerializer
 from .permissions import IsOwnerOrReadOnly
@@ -23,7 +24,7 @@ from rest_framework.response import Response
 from rest_framework import status
 import bitcoin
 import binascii
-from models.factory.currency_model_factory import CurrencyModelFactory
+from cryptoassets.factory.currency_model_factory import CurrencyModelFactory
 
 
 # Create your views here.
@@ -110,10 +111,10 @@ class KeyDetails(generics.RetrieveAPIView):
 
         serializer = PrivateKeySerializer(data=request.data)
 
-        if PrivateKey.objects.filter(owner=user_id).count() == 0:
+        if PrivateKey.objects.filter(Q(owner=request.user) | Q(shared_keys=request.user)).distinct().count() == 0:
             return JsonResponse({"keys": None, "key_types" : key_type_choices, "network_types" : network_type_choices})
 
-        models = PrivateKey.objects.filter(owner=user_id)
+        models = PrivateKey.objects.filter(Q(owner=request.user) | Q(shared_keys=request.user)).distinct()
         response = {}
         for current_model in models:
             serialized = PrivateKeySerializer(current_model).data
@@ -181,14 +182,14 @@ def key_share(request):
             return JsonResponse(status=status.HTTP_401_UNAUTHORIZED)
 
         user_id = request.user.id
-        share_to = request.data.get("shared_to",[])
+        share_to = request.data.get("share_to",[])
         already_shared_to = []
 
-        for s in privatekey.shared_keys:
-            if s.owner.id not in share_to:
+        for s in privatekey.shared_keys.all():
+            if s.id not in share_to:
                 s.delete()
             else:
-                already_shared_to.append(s.owner.id)
+                already_shared_to.append(s.id)
 
         users_private_key = RSA.importKey(extern_key=privatekey.owner.account.private_key,
                                           passphrase=request.data.get("master_password"))
@@ -203,15 +204,18 @@ def key_share(request):
             new_owner = User.objects.get(pk=current_user_id)
             if new_owner is None or new_owner.account.public_key is None:
                 continue
-            new_owner_public_key = RSA.importKey(extern_key=new_owner.account.public_key)
+            if new_owner.username == "Worker":
+                new_owner_public_key = RSA.importKey(extern_key=new_owner.account.public_key)
 
-            encoded_private_key = binascii.b2a_hex(
-                PKCS1_OAEP.new(new_owner_public_key).encrypt(decoded_key.encode("UTF-8"))).decode("UTF-8")
+                encoded_private_key = binascii.b2a_hex(
+                    PKCS1_OAEP.new(new_owner_public_key).encrypt(decoded_key.encode("UTF-8"))).decode("UTF-8")
 
-            new_key = PrivateKey(name=privatekey.name + "_shared",  owner=new_owner, parent_key=privatekey, private_key=encoded_private_key, public_key=privatekey.public_key,
-                                 private_key_type=privatekey.private_key_type, asset=privatekey.asset, network_type=privatekey.network_type)
-            new_key.save()
+                new_key = PrivateKey(name=privatekey.name + "_shared",  owner=new_owner, parent_key=privatekey, private_key=encoded_private_key, public_key=privatekey.public_key,
+                                     private_key_type=privatekey.private_key_type, asset=privatekey.asset, network_type=privatekey.network_type)
+                new_key.save()
             shared_with.append(current_user_id)
+            privatekey.shared_keys.add(new_owner)
+            privatekey.save()
         return JsonResponse({"shared" : shared_with})
 
 

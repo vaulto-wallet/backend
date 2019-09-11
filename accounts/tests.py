@@ -260,13 +260,13 @@ class AccountsTest(APITestCase):
         print(response)
 
         scan()
-
+        '''
         res = ping.delay(1)
         print(res)
         res = scan.delay()
         print(res)
         time.sleep(5)
-
+        '''
         pkeys = PrivateKey.objects.all()
         for p in pkeys:
             print(p, p.balance)
@@ -301,6 +301,12 @@ class AccountsTest(APITestCase):
                 "email": "user4@test.com",
                 "password": "password4",
                 "master_password": "masterPwd4",
+            },
+            "Worker": {
+                "name": "Worker",
+                "email": "worker@test.com",
+                "password": "password5",
+                "master_password": "masterPwd5",
             },
         }
 
@@ -418,3 +424,11 @@ class AccountsTest(APITestCase):
         pkeys = PrivateKey.objects.all()
         for p in pkeys:
             print(p)
+
+        data = {}
+        userdata = userlist["user1"]
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + userdata["session_key"])
+        response = self.client.get("/api/keys/", data, format='json')
+        print(response.content)
+
+

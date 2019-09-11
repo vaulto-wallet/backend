@@ -41,7 +41,7 @@ class WorkerAPI(APIView):
 
 
 class UserAPI(APIView):
-    permission_classes = (IsAuthenticated,)
+    permission_classes = ()
     authentication_classes = (TokenAuthentication,)
 
     def post(self, request, format='json'):

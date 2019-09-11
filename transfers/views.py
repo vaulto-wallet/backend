@@ -10,11 +10,15 @@ from .models import TransferRequest, Out, Confirmation
 from .serializers import TransferRequestSerializer, OutSerializer, ConfirmationSerializer
 
 from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_OAEP
+from Crypto.Signature import pkcs1_15
+from Crypto.Hash import SHA256
+
 from django.http import JsonResponse
 
 from rest_framework.decorators import api_view
 from django.views.decorators.csrf import csrf_exempt
-
+import binascii
 
 
 
@@ -53,6 +57,9 @@ class TransferRequestView(generics.RetrieveAPIView):
 def transfer_confirm(request):
     if request.method == 'POST':
         request.data.update({"user" : request.user.id})
+        master_password = request.data.get("master_password", None)
+        if master_password is None:
+            return JsonResponse(status=status.HTTP_403_FORBIDDEN)
         try:
             transfer: TransferRequest = TransferRequest.objects.get(pk=request.data.get("request"))
         except TransferRequest.DoesNotExist:
@@ -68,6 +75,14 @@ def transfer_confirm(request):
         serializer = ConfirmationSerializer(data=request.data)
         if serializer.is_valid():
             new_confirmation = transfer.confirmation_set.create(**serializer.validated_data)
+            users_private_key = RSA.importKey(extern_key=request.user.account.private_key,
+                                              passphrase=request.data.get("master_password"))
+            transfer_hash = SHA256.new(int(new_confirmation.code_2fa).to_bytes(4, byteorder="little") + transfer.binary)
+            signature = binascii.b2a_hex(pkcs1_15.new(users_private_key).sign(transfer_hash)).decode("UTF-8")
+            new_confirmation.signature = signature
+            new_confirmation.save()
+
+
         if new_confirmation:
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

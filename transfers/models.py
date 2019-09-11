@@ -1,17 +1,23 @@
 from django.db import models
 from django.db.models import Sum
+import struct
 
 class Confirmation(models.Model):
     user = models.ForeignKey("auth.User", on_delete=models.CASCADE, null=True)
     status = models.BooleanField(default=False)
     request = models.ForeignKey("transfers.TransferRequest", on_delete=models.CASCADE)
     code_2fa = models.CharField(max_length=255, blank=True, null=True)
+    signature = models.CharField(max_length=255, blank=True, null=True)
     validated = models.BooleanField(default=False)
 
 class Out(models.Model):
     address = models.CharField(max_length=255)
     amount = models.FloatField(default=0)
     request = models.ForeignKey("transfers.TransferRequest", on_delete=models.CASCADE)
+    @property
+    def binary(self):
+        res = bytearray(struct.pack("f", self.amount)) + len(self.address).to_bytes(4, byteorder='little') + self.address.encode("ascii")
+        return res
 
 class TransferRequest(models.Model):
     STATUS_NO_FIREWALL_RULE = 1
@@ -46,6 +52,14 @@ class TransferRequest(models.Model):
             for fr in self.firewall_rule.firewall_signatures:
                 result.append(fr.user)
         return result
+    @property
+    def binary(self):
+        res = len(self.outs).to_bytes(4, byteorder="little")
+        for o in self.outs:
+            res += o.binary
+        return res
+
+
 
     @property
     def total_amount(self):

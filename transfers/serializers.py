@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Out, Confirmation, TransferRequest
+import struct
 
 class OutSerializer(serializers.ModelSerializer):
     class Meta:
@@ -10,7 +11,7 @@ class OutSerializer(serializers.ModelSerializer):
 class ConfirmationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Confirmation
-        fields= ("user", "status", "request", "code_2fa")
+        fields= ("user", "status", "request", "code_2fa", "signature")
 
 class TransferRequestSerializer(serializers.ModelSerializer):
     outs = OutSerializer(many=True)
@@ -22,7 +23,8 @@ class TransferRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = TransferRequest
         fields = ('id', 'user', 'private_key', 'status', 'outs', 'confirmations', 'description', 'firewall_rule', 'is_confirmed', 'currency')
-        read_only_fields = ('is_confirmed', 'currency')
+        read_only_fields = ('is_confirmed', 'currency', 'binary_outs')
+
 
     def get_currency(self, obj):
         return obj.private_key.asset.symbol
@@ -52,4 +54,3 @@ class TransferRequestSerializer(serializers.ModelSerializer):
         request_model.save()
 
         return request_model
-

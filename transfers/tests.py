@@ -6,6 +6,8 @@ import json
 from keys.models import PrivateKey
 from assets.models import Asset
 from keys.tasks import ping, scan
+from transfers.models import TransferRequest, Out
+from transfers.serializers import TransferRequestSerializer, OutSerializer
 import time
 
 class AccountsTest(APITestCase):
@@ -18,6 +20,13 @@ class AccountsTest(APITestCase):
         self.login_url = '/api/user/login/'
         self.create_privkey= reverse('privkey-create')
 
+    def test_transfer_request_serializer(self):
+        out = Out(address="1221", amount=1.23)
+        out_serialized = OutSerializer(out)
+#        tr = TransferRequest(outs=[out])
+#        trs = TransferRequestSerializer(tr)
+#        print(trs.data)
+        print(out_serialized.data)
 
     def test_create_user_key_transfer(self):
         userlist = {
@@ -159,6 +168,8 @@ class AccountsTest(APITestCase):
 
         data = {
             "request" : 1,
+            "code_2fa" : "1652673",
+            "master_password" : userdata["master_password"]
         }
 
         response = self.client.post("/api/transfers/confirm/", data, format='json')

@@ -32,6 +32,7 @@ class PrivateKey(models.Model):
     parent_key = models.ForeignKey('self', on_delete=models.CASCADE, blank=True, null=True)
     asset = models.ForeignKey("assets.Asset", on_delete=models.CASCADE, to_field="symbol", db_column="asset", blank=True, null=True)
     network_type = models.CharField(max_length=255, default="main", choices=NETWORK_TYPE_CHOICES)
+    shared_keys = models.ManyToManyField('auth.User')
 
     @property
     def balance(self):
@@ -39,11 +40,11 @@ class PrivateKey(models.Model):
         if balance_sum is None:
             return 0
         return balance_sum
-
+    '''
     @property
     def shared_keys(self):
         return PrivateKey.objects.filter(parent_key=self)
-
+    '''
 
     @property
     def firewall_rules(self):
@@ -55,4 +56,4 @@ class PrivateKey(models.Model):
 
 
 
-# Create your models here.
+# Create your cryptoassets here.
