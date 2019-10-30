@@ -7,7 +7,7 @@ ecdsa>=0.10
 jsonrpcclient==2.0.1
 jsonrpc-requests==0.4.0
 mnemonic==0.18
-requests==2.19.1
+requests==2.20.0
 tronapi==3.0.5
 two1==3.10.9
 web3==4.8.2
